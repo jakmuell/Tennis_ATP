@@ -15,14 +15,14 @@ warnings.filterwarnings("ignore", message="The default value of regex will chang
 
 # Change working directory directory where the file is located
 abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
+maindirectory = os.path.dirname(abspath)
+os.chdir(maindirectory)
 
 bool_exit_main_menu = False
-bool_created_new_folder = False
 
 bool_players_start_table_loaded = False
 
+print("Reading all the datasets, this will take just a couple of seconds.")
 matches_table = read_matches()
 tournaments_table = read_tournaments()
 cities_table = read_cities()
@@ -46,6 +46,16 @@ def generate_player_name_id_dict():
 
     return dict
 
+def create_subfolder(foldername: str):
+    if os.path.isdir(foldername):
+        os.chdir(foldername)
+    else:
+        os.mkdir(foldername)
+        os.chdir(foldername)
+
+
+subfoldername = datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 
 
@@ -56,7 +66,8 @@ while not bool_exit_main_menu:
     print("What do you want to do?")
     print("[1] Calculate elos.")
     print("[2] Calculate player stats.")
-    print("[3] Exit.")
+    print("[3] Check for update for matches on https://github.com/JeffSackmann/tennis_atp")
+    print("[4] Exit.")
     main_menu = int(input())
     if main_menu == 1:
         if not bool_players_start_table_loaded: # Import elo_ratings_yearend_2009, but only if we haven't done so already
@@ -69,7 +80,7 @@ while not bool_exit_main_menu:
         while not bool_exit_elo_menu:
             print("What do you want to do?")
             print("[1] Write the two resulting tables to csv files.")
-            print("[2] Write to the files \"matches.csv\" and \"players.xlsx\" with the new information.")
+            print("[2] Write to the files \"matches_10_15.csv\", \"matches_16_end.csv\" and \"players.xlsx\" with the new information.")
             print("[3] Exit.")
             try:
                 elo_menu = int(input())
@@ -77,23 +88,15 @@ while not bool_exit_main_menu:
                 elo_menu = "Invalid"
                 print("Invalid input. Try again")
             if elo_menu == 1:
-                if not bool_created_new_folder:
-                    folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-                os.mkdir(folder_name)
-                os.chdir(folder_name)
+                create_subfolder(subfoldername)
                 elos_match_by_match.to_csv("elos_match_by_match.csv",index=False)
                 players_ratings_final.to_csv("players_elos.csv",index=False)
-                os.chdir(dname)
+                os.chdir(maindirectory)
             elif elo_menu == 2:
                 players_info_table = players_table.loc[:,["id","name","given_name","surname","alt_name","id_sackmann","country","birthday"\
                                                           ,"hand","height","url","url2","surname_tennis_explorer","surname_tennis_explorer2",]]
                 players_table_updated = pd.merge(players_info_table, players_ratings_final, how = "left", on = "id")
-                if not bool_created_new_folder:
-                    folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-                if not bool_created_new_folder:
-                    folder_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-                os.mkdir(folder_name)
-                os.chdir(folder_name)
+                create_subfolder(subfoldername)
                 players_table_updated.to_csv("players_table_updates.csv",index=False)
                 write_player_table(players_table_updated)
                 matches_table_columns_not_update = ["match_id","winner_id", "loser_id", "score", "best_of", "round", "minutes", "w_ace", "w_df", "w_svpt",	"w_1stIn", "w_1stWon", "w_2ndWon", "w_SvGms", "w_bpSaved",\
@@ -110,11 +113,14 @@ while not bool_exit_main_menu:
                 if len(new_columns) > len(old_columns):
                     setdiff = new_columns.difference(old_columns)
                     warnings.warn("The new matches table has more columns than the old one. The following columns are new: {}.".format(setdiff), UserWarning, stacklevel=2)
-                if len(matches_table_updated.columns) < len(matches_table.columns):
+                if len(new_columns) < len(old_columns):
                     setdiff = old_columns.difference(new_columns)
-                    warnings.warn("The new matches table has fewer columns than the old one. The following columns are missing: {}.".format(setdiff), UserWarning, stacklevel=2)
-                matches_table_updated.to_csv("matches.csv",index=False)
-                os.chdir(dname)
+                    warnings.warn("The new matches table has fewer columns than the old one ({} compared to {}). The following columns are missing: {}.".format(len(matches_table_updated.columns),len(matches_table.columns),setdiff), UserWarning, stacklevel=2)
+                matches_table_updated1 = matches_table_updated.loc[tourney_id_to_year(matches_table["tourney_id"])<2016]
+                matches_table_updated2 = matches_table_updated.loc[tourney_id_to_year(matches_table["tourney_id"])>=2016]
+                matches_table_updated1.to_csv("matches_10_15.csv",index=False)
+                matches_table_updated2.to_csv("matches_16_end.csv",index=False)
+                os.chdir(maindirectory)
             elif elo_menu == 3:
                 bool_exit_elo_menu = True
                 continue
@@ -190,7 +196,47 @@ while not bool_exit_main_menu:
                     #S.to_csv("stats_" + player_names + ".csv",encoding="cp1252",index=False)
                     write_stats_table(S)
 
-
     elif main_menu == 3:
+        matches_new, tournaments_new, players_new = download_from_github()
+        if len(matches_new.index) == 0 and len(tournaments_new.index==0) and len(players_new.index==0):
+            print("No new data found.")
+        else:
+            print("New data found. What do you want to do with the new data?")
+            print("[1] Write to the tables \"matches_new.csv\", \"tournaments_new.csv\", \"players_new.csv\".")
+            print("[2] Write to the tables \"matches_16_end.csv\", \"tournaments.xlsx\" and \"players.xlsx\" in a subfolder.")
+            print("[3] Write to the tables \"matches_16_end.csv\", \"tournaments.xlsx\" and \"players.xlsx\" in the main folder.")
+            print("[4] Exit.")
+            github_update_menu = int(input())
+
+            if github_update_menu == 1:
+                create_subfolder(subfoldername)
+                matches_new = matches_new.drop(["match_id"],axis=1)
+                matches_new.to_csv("matches_new.csv",index=False)
+                tournaments_new.to_csv("tournaments_new.csv",index=False)
+                players_new.to_csv("players_new.csv",index=False)
+                os.chdir(maindirectory)
+            
+            elif github_update_menu == 2 or github_update_menu == 3:
+                matches_16_end_before = matches_table.loc[tourney_id_to_year(matches_table["tourney_id"])>=2016,:]
+                matches_16_end_total = pd.concat([matches_16_end_before,matches_new],join="outer",ignore_index=True)
+                matches_16_end_total = matches_16_end_total.drop(["match_id"],axis=1)
+                
+                print(players_table)
+                print(players_new)
+                players_total = pd.concat([players_table,players_new],join="outer",ignore_index=True)
+                print(players_total)
+                tournaments_total = pd.concat([tournaments_table,tournaments_new],join="outer",ignore_index=True)
+                print(tournaments_total)
+
+                if github_update_menu == 2:
+                    create_subfolder(subfoldername)
+                    matches_16_end_total.to_csv("matches_16_end.csv",index=False)
+                    write_player_table(players_total)
+                    write_tournaments_table(tournaments_total)
+                    os.chdir(maindirectory)
+
+
+
+    elif main_menu == 4:
         bool_exit_main_menu = True
         continue

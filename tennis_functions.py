@@ -62,8 +62,10 @@ players_dtypes = {"id": "str", "name": "str", "given_name": "str", "surname": "s
     "elo_overall": "float", "match_number": "Int64", "elo_hard": "float", "match_number_hard": "Int64", \
     "elo_clay": "float", "match_number_clay": "Int64", "elo_grass": "float", "match_number_grass": "Int64", "previous_match": "str"}
 
-def read_matches(filename: str = "matches.csv") -> pd.DataFrame:
-    M = pd.read_csv(filename,dtype=matches_dtypes,parse_dates=["date"], encoding = "ISO-8859-1")
+def read_matches() -> pd.DataFrame:
+    M1 = pd.read_csv("matches_10_15.csv",dtype=matches_dtypes,parse_dates=["date"], encoding = "ISO-8859-1")
+    M2 = pd.read_csv("matches_16_end.csv",dtype=matches_dtypes,parse_dates=["date"], encoding = "ISO-8859-1")
+    M = pd.concat([M1,M2]).reset_index(drop=True)
     M["match_id"] = match_id(M.tourney_id,M.winner_id,M.loser_id,M.score)
     if M["match_id"].isnull().sum() > 0:
         warnings.warn("The column \match_id\" inthe table {} has missing values.".format(filename), UserWarning, stacklevel=2)
@@ -188,9 +190,12 @@ def winprobabilities_from_elo(surfaces: pd.Series, best_ofs: pd.Series, w_elo_be
     M["winner_winprob_comb"] = M["w_surface"] * M["winner_winprob_surface"] + (1-M["w_surface"]) * M["winner_winprob_overall"]
 
     return M["winner_winprob_comb"]
+
+def tourney_id_to_year(tourney_ids: pd.Series):
+    return (tourney_ids.str.slice(start=0,stop=4)).astype(int)
     
 
-def create_master_table(previous_columns_bool: bool = False, cities_bool: bool = False, matches_table: pd.DataFrame = read_matches("matches.csv"), tournaments_table: pd.DataFrame = read_tournaments(), cities_table: pd.DataFrame = read_cities()) -> pd.DataFrame:
+def create_master_table(previous_columns_bool: bool = False, cities_bool: bool = False, matches_table: pd.DataFrame = read_matches(), tournaments_table: pd.DataFrame = read_tournaments(), cities_table: pd.DataFrame = read_cities()) -> pd.DataFrame:
     """
     
     Args:
@@ -212,7 +217,7 @@ def create_master_table(previous_columns_bool: bool = False, cities_bool: bool =
         C = cities_table.loc[:,["city","country","lat","long","elev"]]
         master_table = pd.merge(master_table, C, how = "left", left_on = "city", right_on = "city")
 
-    master_table["year"] = (master_table["tourney_id"].str.slice(start=0,stop=4)).astype(int)
+    master_table["year"] = tourney_id_to_year(master_table["tourney_id"])
 
     if previous_columns_bool:
         matches_lookup = master_table.loc[:,["match_id","surface","winner_id","score","winner_elo","winner_elo_surface","loser_elo","loser_elo_surface"]]
@@ -679,12 +684,12 @@ def write_tournaments_table(T: pd.DataFrame):
     column_settings = [{'header': column} for column in T.columns]
     worksheet.add_table(0, 0, max_row, max_col - 1, {'columns': column_settings, "style": "Table Style Medium 7"})
     worksheet.set_column(0, 0, 50,cell_format)
-    worksheet.set_column(1, 1, 12,cell_format) 
-    worksheet.set_column(2,2,17,cell_format)
-    worksheet.set_column(3,3,9,cell_format)
-    worksheet.set_column(4,4,10,cell_format)
-    worksheet.set_column(5,5,30,cell_format)
-    worksheet.set_column(6,6,30,cell_format)
+    worksheet.set_column(1, 1, 8,cell_format) 
+    worksheet.set_column(2,2,14,cell_format)
+    worksheet.set_column(3,3,22,cell_format)
+    worksheet.set_column(4,5,10,cell_format)
+    worksheet.set_column(6,7,30,cell_format)
+    worksheet.set_column(8,8,50,cell_format)
     writer.close()
 
 
@@ -735,7 +740,7 @@ def write_player_table(P: pd.DataFrame, initial_elo: float = 1400):
     worksheet.set_column(10, 11, 65, cell_format)
     worksheet.set_column(12, 13, 15, cell_format)
     worksheet.set_column(14, 21, 10,cell_format)
-    worksheet.set_column(22, 22, 55,cell_format)
+    worksheet.set_column(22, 22, 100,cell_format)
     writer.close()
 
 
@@ -1012,10 +1017,17 @@ def weather_data(googledrive_url,M):
         "hum_perc_before","hum_perc_after","pressure_mmHg_before","pressure_mmHg_after","windspeed_ms_before","windspeed_ms_after"],axis=1)
     return M2
 
+def strip_strings(x):
+    if isinstance(x, str):
+        return x.strip()
+    else:
+        return x
+
 def download_from_github(year: int = datetime.now().year, matches_table: pd.DataFrame = read_matches(), players_table: pd.DataFrame = read_players(), tournaments_table: pd.DataFrame = read_tournaments()):
     
     matches_github_columns = ["tourney_id","tourney_name","surface","tourney_date","score","best_of","round","minutes","w_ace","w_df","w_svpt","w_1stIn","w_1stWon",\
-                              "w_2ndWon","w_SvGms","w_bpSaved","w_bpFaced","l_ace","l_df","l_svpt","l_1stIn","l_1stWon","l_2ndWon","l_SvGms","l_bpSaved","l_bpFaced"]
+                              "w_2ndWon","w_SvGms","w_bpSaved","w_bpFaced","l_ace","l_df","l_svpt","l_1stIn","l_1stWon","l_2ndWon","l_SvGms","l_bpSaved","l_bpFaced",\
+                                "winner_name","loser_name"]
 
     matches_github_dtypes = {"tourney_id": "str", "tourney_name": "str", "tourney_date": "str", "score": "str", "best_of": "Int64", "round": "str", "minutes": "Int64", \
                              "w_ace": "Int64", "w_df": "Int64", "w_svpt": "Int64", "w_1st": "Int64", "w_1stWon": "Int64", "w_2ndWon": "Int64", "w_SvGms": "Int64", \
@@ -1026,12 +1038,20 @@ def download_from_github(year: int = datetime.now().year, matches_table: pd.Data
     
     
     matches_atp = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_" + str(year) + ".csv", dtype = matches_github_dtypes, usecols = matches_github_columns, parse_dates=["tourney_date"])
-    matches_chal = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_qual_chall_" + str(year) + ".csv", dtype = matches_github_dtypes, parse_dates=["tourney_date"])
-    matches_itf = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_futures_" + str(year) + ".csv", dtype = matches_github_dtypes, parse_dates=["tourney_date"])
+    matches_chal = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_qual_chall_" + str(year) + ".csv", dtype = matches_github_dtypes, usecols = matches_github_columns, parse_dates=["tourney_date"])
+    matches_itf = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_futures_" + str(year) + ".csv", dtype = matches_github_dtypes, usecols = matches_github_columns, parse_dates=["tourney_date"])
     players_github = pd.read_csv("https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_players.csv", dtype = players_github_dtypes)
     ioc_codes = pd.read_csv("ioc_codes.csv")
 
     matches_github = pd.concat([matches_atp,matches_chal,matches_itf]).reset_index(drop=True)
+
+    matches_github.to_csv("matches_new_0.csv",index=False)
+
+    # Strip blanks
+    matches_github = matches_github.applymap(strip_strings)
+    matches_github = matches_github.applymap(lambda x: x.replace("  ", " ") if isinstance(x, str) else x)
+    players_github = players_github.applymap(strip_strings)
+
     matches_github["year"] = year
     matches_github["tourney_id"] = tourney_id(matches_github["year"], matches_github["tourney_name"], matches_github["tourney_date"])
 
@@ -1039,16 +1059,6 @@ def download_from_github(year: int = datetime.now().year, matches_table: pd.Data
     for row in alt_names.itertuples():
         matches_github.loc[ matches_github["winner_name"] == row.alt_name, "winner_name" ] = row.name
         matches_github.loc[ matches_github["loser_name"] == row.alt_name, "loser_name" ] = row.name
-    players_lookup_winner = players_table.loc[:,["name","id"]]
-    players_lookup_winner = players_lookup_winner.rename({"name": "winner_name", "id": "winner_id_y"},axis=1)
-    matches_github = pd.merge(matches_github, players_lookup_winner, how = "left", on = "winner_name")
-    players_lookup_loser = players_table.loc[:,["name","id"]]
-    players_lookup_loser = players_lookup_loser.rename({"name": "loser_name", "id": "loser_id_y"},axis=1)
-    matches_github = pd.merge(matches_github, players_lookup_loser, how = "left", on = "loser_name")
-    print(matches_github["winner_id_y"])
-    matches_github["match_id"] = match_id(matches_github["tourney_id"], matches_github["winner_id_y"], matches_github["loser_id_y"], matches_github["score"])
-    matches_not_available = ~(matches_github["match_id"].isin(matches_table["match_id"]))
-    matches_new = matches_github.loc[matches_not_available, : ]
     
 
     players_github["name"] = players_github["name_first"] + " " + players_github["name_last"]
@@ -1060,21 +1070,54 @@ def download_from_github(year: int = datetime.now().year, matches_table: pd.Data
     players_new["birthday"] = pd.to_datetime(players_new["dob"], format = "%Y%m%d",errors="coerce")
     players_new["hand"] = np.where(players_new["hand"] == "L", "left", np.where(players_new["hand"] == "R", "right", np.nan))
     players_new["id"] = player_id(players_new["name"], players_new["country"], players_new["birthday"])
+    players_new["elo_overall"] = 1400
+    players_new["elo_hard"] = 1400
+    players_new["elo_clay"] = 1400
+    players_new["elo_grass"] = 1400
+    players_new["match_number"] = 0
+    players_new["match_number_hard"] = 0
+    players_new["match_number_clay"] = 0
+    players_new["match_number_grass"] = 0
     
 
+    players_total = pd.concat([players_table,players_new]).reset_index(drop=True)
+
+    players_lookup_winner = players_total.loc[:,["name","id"]]
+    players_lookup_winner = players_lookup_winner.rename({"name": "winner_name", "id": "winner_id"},axis=1)
+    matches_github = pd.merge(matches_github, players_lookup_winner, how = "left", on = "winner_name")
+    players_lookup_loser = players_total.loc[:,["name","id"]]
+    players_lookup_loser = players_lookup_loser.rename({"name": "loser_name", "id": "loser_id"},axis=1)
+    matches_github = pd.merge(matches_github, players_lookup_loser, how = "left", on = "loser_name")
+    matches_github["match_id"] = match_id(matches_github["tourney_id"], matches_github["winner_id"], matches_github["loser_id"], matches_github["score"])
+    matches_not_available = ~(matches_github["match_id"].isin(matches_table["match_id"]))
+    matches_new = matches_github.loc[matches_not_available, : ]
+
+    #players_total_winner = players_total.loc[:,["name","id"]].rename({"name": "winner_name", "id": "winner_id"},axis=1)
+    #matches_new = pd.merge(matches_new,players_total_winner,how="left",on="winner_name")
+
+
     players_new = players_new.drop(["name_first","name_last","wikidata_id","dob","ioc","code"], axis = 1)
-    #players_new_total = pd.concat([players_table,players_new]).reset_index(drop=True)
 
 
     tournaments_github = matches_github.loc[:,["tourney_id","tourney_name","surface","tourney_date"]]
     tournaments_github["year"] = year
-    tournaments_github["id"] = tourney_id(tournaments_github["year"], tournaments_github["tourney_name"], tournaments_github["tourney_date"] )
     tournaments_github = tournaments_github.drop_duplicates().reset_index(drop=True)
-    tournaments_github = tournaments_github.rename({"tourney_date": "date", "tourney_name": "name"},axis=1)
+    tournaments_github = tournaments_github.rename({"tourney_date": "date", "tourney_name": "name", "tourney_id": "id"},axis=1)
     tournament_not_available = (~tournaments_github["id"].isin(tournaments_table["id"]))
     tournaments_new = tournaments_github.loc[tournament_not_available, : ]
 
     #M = M.drop(["tourney_name", "surface","tourney_date"], axis = 1)
+
+    #matches_new = matches_new.drop(["tourney_name","surface","tourney_date","tourney_level","match_num","winner_seed","winner_entry","winner_ht","winner_ioc",\
+    #                                "winner_age","loser_seed","loser_entry","loser_name","loser_ht","loser_ioc","loser_age","winner_rank","winner_rank_points","loser_rank",\
+    #                                "loser_rank_points","year","winner_id_y","loser_id_y","match_id","winner_hand","loser_hand"], axis = 1)
+
+    #col = ["match_id","year","surface","tourney_date","tourney_name"]
+    #for c in col:
+    #    matches_new = matches_new.drop([c],index=1)
+    #    if c in matches_new.columns:
+    #        print("{} in columns".format(c))
+    matches_new = matches_new.drop(["year","surface","tourney_date","tourney_name"],axis=1)
 
     return matches_new, tournaments_new, players_new
 
