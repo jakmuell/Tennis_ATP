@@ -221,12 +221,8 @@ while not bool_exit_main_menu:
                 matches_16_end_total = pd.concat([matches_16_end_before,matches_new],join="outer",ignore_index=True)
                 matches_16_end_total = matches_16_end_total.drop(["match_id"],axis=1)
                 
-                print(players_table)
-                print(players_new)
                 players_total = pd.concat([players_table,players_new],join="outer",ignore_index=True)
-                print(players_total)
                 tournaments_total = pd.concat([tournaments_table,tournaments_new],join="outer",ignore_index=True)
-                print(tournaments_total)
 
                 if github_update_menu == 2:
                     create_subfolder(subfoldername)
@@ -234,6 +230,14 @@ while not bool_exit_main_menu:
                     write_player_table(players_total)
                     write_tournaments_table(tournaments_total)
                     os.chdir(maindirectory)
+
+                if github_update_menu == 3:
+                    print("Warning: This will permanently change the already existing files. Only continue if you have sufficient backup. Continue? [Y/N]")
+                    continue_bool = input()
+                    if continue_bool == "Y":
+                        matches_16_end_total.to_csv("matches_16_end.csv",index=False)
+                        write_player_table(players_total)
+                        write_tournaments_table(tournaments_total)
 
 
 
