@@ -1117,7 +1117,7 @@ def download_from_github(year: int = datetime.now().year, matches_table: pd.Data
     #    matches_new = matches_new.drop([c],index=1)
     #    if c in matches_new.columns:
     #        print("{} in columns".format(c))
-    matches_new = matches_new.drop(["year","surface","tourney_date","tourney_name"],axis=1)
+    matches_new = matches_new.drop(["year","surface","tourney_date","tourney_name","winner_name","loser_name"],axis=1)
 
     return matches_new, tournaments_new, players_new
 
