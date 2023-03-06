@@ -68,15 +68,15 @@ def read_matches() -> pd.DataFrame:
     M = pd.concat([M1,M2]).reset_index(drop=True)
     M["match_id"] = match_id(M.tourney_id,M.winner_id,M.loser_id,M.score)
     if M["match_id"].isnull().sum() > 0:
-        warnings.warn("The column \match_id\" inthe table {} has missing values.".format(filename), UserWarning, stacklevel=2)
+        warnings.warn("The column \match_id\" in the matches table has missing values.", UserWarning, stacklevel=2)
     M["date"] = pd.to_datetime(M["date"])
     duplicate_ids = M.loc[M.duplicated(["match_id"]),"match_id"]
     if len(duplicate_ids)>10:
         duplicate_ids.to_csv("duplicate_match_ids.csv",index=False)
-        warningmessage = "The column \"id\" in the table {} is intended as a unique identifier but it has duplicate values. The duplicate values have been written to the file \"duplicate_match_ids.csv\". You should check the contents of the files and resolve the duplicates.".format(filename)
+        warningmessage = "The column \"id\" in the matches table is intended as a unique identifier but it has duplicate values. The duplicate values have been written to the file \"duplicate_match_ids.csv\". You should check the contents of the files and resolve the duplicates."
         warnings.warn(warningmessage, UserWarning, stacklevel=2)
     elif 1 <= len(duplicate_ids) <= 9:
-        warningmessage = "The column \"match_id\" in the table {} is intended as a unique identifier but it has duplicate values. The duplicates are:".format(filename)
+        warningmessage = "The column \"match_id\" in the matches table is intended as a unique identifier but it has duplicate values. The duplicates are:"
         for duplicate in duplicate_ids:
             warningmessage += ("\n"+duplicate)
             warnings.warn(warningmessage, UserWarning, stacklevel=2)
