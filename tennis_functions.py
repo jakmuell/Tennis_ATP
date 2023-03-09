@@ -83,7 +83,7 @@ def read_matches() -> pd.DataFrame:
     return M
 
 def read_tournaments(filename: str = "tournaments.xlsx") -> pd.DataFrame:
-    T = pd.read_excel(filename,dtype=tournaments_dtypes,parse_dates=["date"],sheet_name="tournaments")
+    T = pd.read_excel(filename,dtype=tournaments_dtypes,sheet_name="tournaments")
     T["id"] = tourney_id(T.year,T.name,T.date)
     duplicate_ids = T.loc[T.duplicated(["id"]),"id"]
     if len(duplicate_ids)>10:
@@ -683,13 +683,16 @@ def write_tournaments_table(T: pd.DataFrame):
 
     column_settings = [{'header': column} for column in T.columns]
     worksheet.add_table(0, 0, max_row, max_col - 1, {'columns': column_settings, "style": "Table Style Medium 7"})
-    worksheet.set_column(0, 0, 50,cell_format)
-    worksheet.set_column(1, 1, 8,cell_format) 
-    worksheet.set_column(2,2,14,cell_format)
-    worksheet.set_column(3,3,22,cell_format)
-    worksheet.set_column(4,5,10,cell_format)
-    worksheet.set_column(6,7,30,cell_format)
-    worksheet.set_column(8,8,50,cell_format)
+    #worksheet.set_column(0, 0, 50,cell_format)
+    #worksheet.set_column(1, 1, 8,cell_format) 
+    #worksheet.set_column(2,2,14,cell_format)
+    #worksheet.set_column(3,3,22,cell_format)
+    #worksheet.set_column(4,5,10,cell_format)
+    #worksheet.set_column(6,7,30,cell_format)
+    #worksheet.set_column(8,8,50,cell_format)
+    for i, column in enumerate(T.columns):
+        max_width = max([len(str(x)) for x in T[column]])
+        worksheet.set_column(i, i, max_width + 2,cell_format)
     writer.close()
 
 
@@ -1136,6 +1139,33 @@ def aces_per_point(M: pd.DataFrame, year: int, tourney_name: str) -> int:
     total_points = sum(M.w_svpt) +  sum(M.l_svpt)
     print(total_points)
     return total_aces/total_points
+
+def european_league_scores(country: str, surface: str, outdoor_bool: bool, P: pd.DataFrame, filename: str):
+    players_lookup = P.loc[:,["name","id"]]
+    M = pd.read_excel(filename,parse_dates=["date"],sheet_name="matches")
+    C = pd.read_excel(filename,sheet_name="clubs")
+    M = M.loc[(M["w_check"]=="OK") & (M["l_check"]=="OK") & (M["h_check"]=="OK") & (M["a_check"]=="OK"),:].reset_index(drop=True)
+    M["tourney_id"] = tourney_id(M["date"].dt.year,M["tourney_name"],M["date"])
+    M["best_of"] = 3
+    M = pd.merge(left=M,right=players_lookup.rename({"id": "winner_id", "name": "winner_name"},axis=1),on="winner_name",how="left")
+    M = pd.merge(left=M,right=players_lookup.rename({"id": "loser_id", "name": "loser_name"},axis=1),on="loser_name",how="left")
+    T = M.loc[:,["home_team","away_team","tourney_name","date","tourney_id"]].drop_duplicates().reset_index(drop=True)
+    T["date"] = pd.to_datetime(T["date"].dt.date)
+    T = pd.merge(T,C,how="left",left_on="home_team",right_on="club")
+    T["city"] = T["city"] + ", Austria"
+    T["surface"] = surface
+    T["year"] = tourney_id_to_year(T["tourney_id"])
+    if outdoor_bool:
+        T["outdoor"] = "Outdoor"
+    else:
+        T["outdoor"] = "Indoor"
+    T["level"] = "European League System"
+    T = T.rename({"tourney_name": "name","home_team": "venue", "tourney_id": "id"},axis=1)
+    T = T.drop(["club","away_team"], axis = 1)
+    T = T.sort_values("date",ascending=True)
+    T = T.drop_duplicates(subset=T.columns.difference(["date"]), keep="first")
+    M = M.drop(["w_check","l_check","h_check","a_check","tourney_name","competition","home_team","away_team","winner_name","loser_name"],axis=1)
+    return M, T
 
 
 
